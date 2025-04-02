@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <style>
+      .selected-date {
+        background-color: #ffeb3b !important;
+      }
+    </style>
+  </head>
+  <body>
+    <button id="bookBtn">Book Selected Date</button>
+    <div id="calendar"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        let selectedDate = null;
+        let selectedEl = null;
+
+        const bookBtn = document.getElementById("bookBtn");
+        const calendarEl = document.getElementById("calendar");
+
+        const calendar = new FullCalendar.Calendar(calendarEl, {
+          initialView: "dayGridMonth",
+          events: [
+            {
+              title: "Adventure Land Ad",
+              start: "2025-04-05",
+              end: "2025-04-08",
+            },
+          ],
+          dateClick: function (info) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0); // clear time
+
+            const clickedDate = new Date(info.dateStr);
+
+            if (clickedDate < today) {
+              alert("You can't select a past date.");
+              return;
+            }
+
+            if (selectedEl) {
+              selectedEl.classList.remove("selected-date");
+            }
+
+            info.dayEl.classList.add("selected-date");
+            selectedEl = info.dayEl;
+            selectedDate = info.dateStr;
+          },
+        });
+
+        bookBtn.addEventListener("click", function () {
+          if (!selectedDate) {
+            alert("Please select a date first!");
+            return;
+          }
+
+          const start = new Date(selectedDate);
+          const end = new Date(start);
+          end.setDate(end.getDate() + 7); // 7-day span (end is exclusive)
+
+          calendar.addEvent({
+            title: "Booked a Ad Plan for 7 Days!",
+            start: start.toISOString().split("T")[0],
+            end: end.toISOString().split("T")[0],
+            allDay: true,
+          });
+
+          selectedEl.classList.remove("selected-date");
+          selectedDate = null;
+          selectedEl = null;
+        });
+
+        calendar.render();
+      });
+    </script>
+  </body>
+</html>
