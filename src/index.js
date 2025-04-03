@@ -4,18 +4,45 @@ import interactionPlugin from '@fullcalendar/interaction';
 import { db } from './firebase.js';
 
 // now you can use Firestore like:
-import { collection, getDocs, addDoc } from 'firebase/firestore';
+import { collection, getDocs, addDoc, query, where, deleteDoc, doc } from 'firebase/firestore';
 // const bookingsRef = collection(db, "bookings");
 // const snapshot = await getDocs(bookingsRef);
-
-
-document.addEventListener("DOMContentLoaded", function () {
+ 
+document.addEventListener("DOMContentLoaded", async function () {
   let selectedDate = null;
   let selectedEl = null;
 
   const calendarEl = document.getElementById("calendar");
   let selectedCategory = "Category"; // default
-  let selectedAdType = "Banner"
+  let selectedAdType = "Ad Type"
+
+
+  async function loadFilteredBookings() {
+    if (selectedCategory === "Category" || selectedAdType === "Ad Type") return;
+    if (selectedEl) selectedEl.classList.remove("selected-date");
+    const q = query(
+      collection(db, "bookings"),
+      where("category", "==", selectedCategory),
+      where("adType", "==", selectedAdType)
+    );
+
+    const snapshot = await getDocs(q);
+
+    // 🧼 Clear previous events
+    calendar.getEvents().forEach(event => event.remove());
+
+    // 🆕 Add new events
+    snapshot.docs.forEach(doc => {
+      const data = doc.data();
+      calendar.addEvent({
+        title: `Booked a ${data.category} ${data.adType} Ad Plan`,
+        start: data.start,
+        end: data.end,
+        allDay: true,
+      });
+    });
+  }
+
 
   const calendar = new Calendar(calendarEl, {
     plugins: [dayGridPlugin, interactionPlugin],
@@ -23,54 +50,43 @@ document.addEventListener("DOMContentLoaded", function () {
     customButtons: {
       bookButton: {
         text: "Book Selected Date",
-        click: function () {
+        click: async function () {
           if (!selectedDate) {
             alert("Please select a date first!");
             return;
           }
 
-          // Check for double booking conflicts
           const maxSpots = 4;
-          const parts = selectedDate.split("-"); // ["2025", "04", "03"]
-          const startDate = new Date(parts[0], parts[1] - 1, parts[2]); // YYYY, MM (0-based), DD
+          const parts = selectedDate.split("-");
+          const startDate = new Date(parts[0], parts[1] - 1, parts[2]);
 
           const bookingDays = [];
-
-          // Generate 7-day span
           for (let i = 0; i < 7; i++) {
             const day = new Date(startDate);
             day.setDate(startDate.getDate() + i);
-            bookingDays.push(day.toISOString().split("T")[0]); // format: YYYY-MM-DD
+            bookingDays.push(day.toISOString().split("T")[0]);
           }
 
-          // Get all current events
           const allEvents = calendar.getEvents();
-
-          // Count overlaps per day
           let bookingConflict = false;
 
           for (let date of bookingDays) {
             let count = 0;
+            const current = new Date(date);
+            current.setHours(0, 0, 0, 0);
 
             allEvents.forEach((event) => {
-              const allEventsParts = date.split("-"); // ["2025", "04", "10"]
-              const allEventscurrent = new Date(allEventsParts[0], allEventsParts[1] - 1, allEventsParts[2]); // Year, Month (0-based), Day
-              allEventscurrent.setHours(0, 0, 0, 0);
-
               const eventStart = new Date(event.start);
-              eventStart.setHours(0, 0, 0, 0);
-
               const eventEnd = new Date(event.end);
+              eventStart.setHours(0, 0, 0, 0);
               eventEnd.setHours(0, 0, 0, 0);
 
-              // Is this date within the event's range?
               if (
                 event.title.includes(selectedCategory) &&
-                event.title.includes(selectedAdType)
+                event.title.includes(selectedAdType) &&
+                eventStart <= current && current < eventEnd
               ) {
-                if (eventStart <= allEventscurrent && allEventscurrent < eventEnd) {
-                  count++;
-                }
+                count++;
               }
             });
 
@@ -81,35 +97,44 @@ document.addEventListener("DOMContentLoaded", function () {
           }
 
           if (bookingConflict) {
-            alert(
-              "Booking cannot be completed. The selected time range exceeds availability."
-            );
+            alert("Booking cannot be completed. The selected time range exceeds availability.");
             return;
           }
 
-          const start = new Date(selectedDate);
-          const end = new Date(start);
-          end.setDate(end.getDate() + 7);
+          // Save to Firestore
+          const endDate = new Date(startDate);
+          endDate.setDate(endDate.getDate() + 7);
 
-          let title = `Booked an Ad Plan for 7 Days!`;
+          try {
+            await addDoc(collection(db, "bookings"), {
+              category: selectedCategory,
+              adType: selectedAdType,
+              start: startDate.toISOString().split("T")[0],
+              end: endDate.toISOString().split("T")[0],
+              createdAt: new Date()
+            });
 
-          // Include both if valid
-          if (selectedAdType !== "Ad Type") {
-            title = `Booked a ${selectedCategory} ${selectedAdType} Ad Plan for 7 Days!`;
+            // Add to calendar after saving
+            let title = `Booked a ${selectedCategory} ${selectedAdType} Ad Plan for 7 Days!`;
+
+            calendar.addEvent({
+              title: title,
+              start: startDate.toISOString().split("T")[0],
+              end: endDate.toISOString().split("T")[0],
+              allDay: true,
+            });
+
+            selectedEl.classList.remove("selected-date");
+            selectedDate = null;
+            selectedEl = null;
+
+          } catch (error) {
+            console.error("Error saving booking:", error);
+            alert("Something went wrong while saving your booking.");
           }
-
-          calendar.addEvent({
-            title: title,
-            start: start.toISOString().split("T")[0],
-            end: end.toISOString().split("T")[0],
-            allDay: true,
-          });
-
-          selectedEl.classList.remove("selected-date");
-          selectedDate = null;
-          selectedEl = null;
-        },
+        }
       },
+
       categoryDropdown: {
         text: "Categories ▼",
         click: null, // we'll override click with custom HTML
@@ -118,11 +143,28 @@ document.addEventListener("DOMContentLoaded", function () {
         text: "Ad Type ▼",
         click: null,
       },
+      deleteAllButton: {
+        text: "Delete All Bookings",
+        click: async function () {
+          if (!confirm("Are you sure you want to delete ALL bookings?")) return;
+    
+          const snapshot = await getDocs(collection(db, "bookings"));
+    
+          const deletePromises = snapshot.docs.map((docSnap) =>
+            deleteDoc(doc(db, "bookings", docSnap.id))
+          );
+    
+          await Promise.all(deletePromises);
+    
+          alert("All bookings deleted.");
+          calendar.getEvents().forEach(event => event.remove());
+        },
+      },
     },
     headerToolbar: {
       left: "prev,next today",
       center: "title",
-      right: "categoryDropdown adTypeDropdown bookButton",
+      right: "deleteAllButton categoryDropdown adTypeDropdown bookButton",
     },
     dateClick: function (info) {
       const today = new Date();
@@ -208,9 +250,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 : selectedCategory;
             button.textContent = selectedCategory + " ▼";
             menu.style.display = "none";
-
-            // Optional: trigger event filtering logic here
-            console.log("Selected category:", selectedCategory);
+            loadFilteredBookings();
           });
         });
 
@@ -269,7 +309,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 categoryWrapper?.classList.add("hidden");
                 selectedCategory = "Category";
               }
-
+              loadFilteredBookings();
               console.log("Selected ad type:", selectedAdType);
             });
           });
@@ -284,3 +324,4 @@ document.addEventListener("DOMContentLoaded", function () {
 
   calendar.render();
 });
+

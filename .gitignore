@@ -25,3 +25,4 @@ yarn-error.log*
 
 # optional: ignore lock files
 package-lock.json
+/src/*
