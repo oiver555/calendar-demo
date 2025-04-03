@@ -1,0 +1,82 @@
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <style>
+      .selected-date {
+        background-color: #ffeb3b !important; /* bright yellow highlight */
+      }
+      .fc-adTypeDropdown-button,
+      .fc-categoryDropdown-button {
+        padding: 0 !important;
+        border: none !important;
+        background: none !important;
+      }
+
+      .fc-adTypeDropdown-button .dropdown,
+      .fc-categoryDropdown-button .dropdown {
+        margin: 0 !important;
+      }
+      .hidden {
+        display: none !important;
+      }
+      .dropdown {
+        position: relative;
+        display: inline-block;
+      }
+
+      .dropdown-button {
+        padding: 8px 14px;
+        background-color: #222;
+        color: #fff;
+        border: none;
+        border-radius: 4px;
+        font-size: 14px;
+        cursor: pointer;
+      }
+
+      .dropdown-button:hover {
+        background-color: #333;
+      }
+
+      .dropdown-menu {
+        display: none;
+        position: absolute;
+        background-color: #333;
+        border-radius: 4px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        z-index: 999;
+        min-width: 180px;
+        margin-top: 6px;
+        padding: 6px 0;
+      }
+
+      .dropdown-menu a {
+        display: block;
+        padding: 10px 16px;
+        color: white;
+        text-decoration: none;
+        font-size: 14px;
+      }
+
+      .dropdown-menu a:hover {
+        background-color: #444;
+      }
+
+      .fc-deleteAllButton-button {
+  background-color: #d9534f !important;
+  color: white !important;
+  border: none;
+}
+
+.fc-deleteAllButton-button:hover {
+  background-color: #c9302c !important;
+}
+
+    </style>
+  </head>
+  <body>
+    <div id="calendar"></div>
+  </body>
+</html>
